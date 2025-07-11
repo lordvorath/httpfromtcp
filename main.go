@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -17,18 +18,28 @@ func main() {
 	}
 	defer f.Close()
 
-	var s = make([]byte, 8)
+	var buffer = make([]byte, 8)
+	var str string
 	for {
-		n, err := f.Read(s)
-		if errors.Is(err, io.EOF) {
-			break
-		}
+		n, err := f.Read(buffer)
 		if err != nil {
-			log.Fatalf("unexpected error while reading file: %v", err)
+			if str != "" {
+				fmt.Printf("read: %s\n", str)
+				str = ""
+			}
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			fmt.Printf("error: %s\n", err.Error())
 			break
 		}
 
-		str := s[:n]
-		fmt.Printf("read: %s\n", str)
+		parts := strings.Split(string(buffer[:n]), "\n")
+
+		for i := 0; i < len(parts)-1; i++ {
+			fmt.Printf("read: %s%s\n", str, parts[i])
+			str = ""
+		}
+		str += parts[len(parts)-1]
 	}
 }
