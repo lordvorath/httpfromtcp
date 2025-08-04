@@ -16,19 +16,20 @@ func main() {
 	}
 	defer tcpListener.Close()
 
-	netConn, err := tcpListener.Accept()
-	if err != nil {
-		log.Fatalf("failed to establish connection: %v", err)
+	for {
+		netConn, err := tcpListener.Accept()
+		if err != nil {
+			log.Fatalf("failed to establish connection: %v", err)
+		}
+
+		fmt.Println("Connection established")
+
+		incData := getLinesChannel(netConn)
+		for s := range incData {
+			fmt.Printf("%s", s)
+		}
+		fmt.Printf("\nThe channel has been closed\n")
 	}
-
-	fmt.Println("Connection established")
-
-	incData := getLinesChannel(netConn)
-	for s := range incData {
-		fmt.Printf("%s", s)
-	}
-	fmt.Printf("\nThe channel has been closed\n")
-
 }
 
 func getLinesChannel(f net.Conn) <-chan string {
