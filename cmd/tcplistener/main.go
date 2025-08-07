@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	tcpListener, err := net.Listen("tcp", "0.0.0.0:42069")
+	tcpListener, err := net.Listen("tcp", ":42069")
 	if err != nil {
 		log.Fatalf("failed to make listener: %v", err)
 	}
@@ -22,17 +22,17 @@ func main() {
 			log.Fatalf("failed to establish connection: %v", err)
 		}
 
-		fmt.Println("Connection established")
+		fmt.Println("Connection established from:", netConn.RemoteAddr())
 
 		incData := getLinesChannel(netConn)
 		for s := range incData {
-			fmt.Printf("%s", s)
+			fmt.Println(s)
 		}
 		fmt.Printf("\nThe channel has been closed\n")
 	}
 }
 
-func getLinesChannel(f net.Conn) <-chan string {
+func getLinesChannel(f io.ReadCloser) <-chan string {
 	var buffer = make([]byte, 8)
 	var str string
 	var outData = make(chan string)
@@ -44,7 +44,6 @@ func getLinesChannel(f net.Conn) <-chan string {
 			if err != nil {
 				if str != "" {
 					outData <- str
-					str = ""
 				}
 				if errors.Is(err, io.EOF) {
 					break
