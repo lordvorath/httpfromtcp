@@ -52,3 +52,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	h[key] = val
 	return idx + 2, false, nil
 }
+
+func (h Headers) Get(key string) (string, bool) {
+	if val, ok := h[strings.ToLower(key)]; ok {
+		return val, true
+	}
+	return "", false
+}
