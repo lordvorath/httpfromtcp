@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/lordvorath/httpfromtcp/internal/headers"
 )
 
 const crlf = "\r\n"
@@ -15,11 +17,13 @@ type requestState int
 
 const (
 	requestStateInitialized requestState = iota
+	requestStateParsingHeaders
 	requestStateDone
 )
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	ParserState requestState
 }
 
@@ -34,6 +38,8 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	readToIndex := 0
 
 	req := &Request{
+		RequestLine: RequestLine{},
+		Headers:     headers.NewHeaders(),
 		ParserState: requestStateInitialized,
 	}
 
@@ -47,7 +53,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		n, err := reader.Read(buffer[readToIndex:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				req.ParserState = requestStateDone
+				if req.ParserState != requestStateDone {
+					return nil, fmt.Errorf("incomplete request, in state: %d, read n bytes on EOF: %d\nbuffer: %s", req.ParserState, n, string(buffer))
+				}
 				break
 			}
 			return nil, err
@@ -108,6 +116,21 @@ func requestLineFromString(line string) (*RequestLine, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
+	totalBytesParsed := 0
+	for r.ParserState != requestStateDone {
+		n, err := r.parseSingle(data[totalBytesParsed:])
+		if err != nil {
+			return 0, err
+		}
+		totalBytesParsed += n
+		if n == 0 {
+			break
+		}
+	}
+	return totalBytesParsed, nil
+}
+
+func (r *Request) parseSingle(data []byte) (int, error) {
 	switch r.ParserState {
 	case requestStateInitialized:
 		rl, n, err := parseRequestLine(data)
@@ -117,8 +140,17 @@ func (r *Request) parse(data []byte) (int, error) {
 		if n == 0 {
 			return 0, nil
 		}
-		r.ParserState = requestStateDone
 		r.RequestLine = *rl
+		r.ParserState = requestStateParsingHeaders
+		return n, nil
+	case requestStateParsingHeaders:
+		n, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return 0, err
+		}
+		if done {
+			r.ParserState = requestStateDone
+		}
 		return n, nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
