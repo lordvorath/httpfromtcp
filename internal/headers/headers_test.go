@@ -14,7 +14,7 @@ func TestRequestHeaderParse(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
@@ -24,7 +24,7 @@ func TestRequestHeaderParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 29, n)
 	assert.False(t, done)
 
@@ -47,8 +47,8 @@ func TestRequestHeaderParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
-	assert.Equal(t, "text/plain", headers["Content-Type"])
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "text/plain", headers["content-type"])
 	assert.Equal(t, 25, n)
 	assert.False(t, done)
 
@@ -61,4 +61,22 @@ func TestRequestHeaderParse(t *testing.T) {
 	assert.Empty(t, headers)
 	assert.Equal(t, 2, n)
 	assert.True(t, done)
+
+	// Test: Valid single header with weird capitalization
+	headers = NewHeaders()
+	data = []byte("HoSt: localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, 23, n)
+	assert.False(t, done)
+
+	// Test: Invalid character header
+	headers = NewHeaders()
+	data = []byte("H@st: localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
 }

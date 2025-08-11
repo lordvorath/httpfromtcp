@@ -3,6 +3,7 @@ package headers
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -36,9 +37,13 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	if key != strings.TrimRight(key, " ") { // my old way was probably risky: if strings.ContainsAny(key, " \t")
 		return 0, false, fmt.Errorf("invalid header key: '%s'\n", key)
 	}
+	matched, err := regexp.Match("^[a-zA-Z0-9!#$%&'*+-.^_\x60|~]+$", []byte(key))
+	if err != nil || !matched {
+		return 0, false, fmt.Errorf("invalid header key: '%s'\n", key)
+	}
 
 	val = strings.TrimSpace(val)
 
-	h[key] = val
+	h[strings.ToLower(key)] = val
 	return idx + 2, false, nil
 }
