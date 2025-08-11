@@ -42,8 +42,13 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, fmt.Errorf("invalid header key: '%s'\n", key)
 	}
 
+	key = strings.ToLower(key)
 	val = strings.TrimSpace(val)
 
-	h[strings.ToLower(key)] = val
+	if oldVal, ok := h[key]; ok {
+		val = oldVal + ", " + val
+	}
+
+	h[key] = val
 	return idx + 2, false, nil
 }

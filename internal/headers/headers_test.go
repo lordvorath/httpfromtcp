@@ -79,4 +79,14 @@ func TestRequestHeaderParse(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
+
+	// Test: Valid 2 headers with existing headers
+	headers = map[string]string{"test": "test1"}
+	data = []byte("Test: test2\r\nTest: test3\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "test1, test2", headers["test"])
+	assert.Equal(t, 13, n)
+	assert.False(t, done)
 }
