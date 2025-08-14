@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/lordvorath/httpfromtcp/internal/headers"
 )
@@ -44,7 +45,9 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
 	h := headers.Headers{}
-	h.Set("Content-Length", strconv.Itoa(contentLen))
+	if contentLen > 0 {
+		h.Set("Content-Length", strconv.Itoa(contentLen))
+	}
 	h.Set("Connection", "close")
 	h.Set("Content-Type", "text/plain")
 
@@ -117,4 +120,18 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 		return 0, fmt.Errorf("failed to write body: %v", err)
 	}
 	return n, nil
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	l := strings.ToUpper(strconv.FormatInt(int64(len(p)), 16))
+	msg := l + "\r\n" + string(p) + "\r\n"
+	_, err := w.W.Write([]byte(msg))
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	return w.W.Write([]byte("0\r\n\r\n"))
 }

@@ -22,7 +22,7 @@ type HandlerError struct {
 	Message    string
 }
 
-type Handler func(w response.Writer, req *request.Request)
+type Handler func(w *response.Writer, req *request.Request)
 
 func Serve(port int, handler Handler) (*Server, error) {
 	addr := fmt.Sprintf(":%d", port)
@@ -81,7 +81,7 @@ func (s *Server) handle(conn net.Conn) {
 		W: conn,
 	}
 
-	s.handler(writer, req)
+	s.handler(&writer, req)
 
 }
 
