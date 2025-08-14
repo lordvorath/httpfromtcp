@@ -54,8 +54,19 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 }
 
 func (h Headers) Get(key string) (string, bool) {
+	if h == nil {
+		return "", false
+	}
 	if val, ok := h[strings.ToLower(key)]; ok {
 		return val, true
 	}
 	return "", false
+}
+
+func (h Headers) Set(key, val string) (string, bool) {
+	if h == nil {
+		return "", false
+	}
+	h[strings.ToLower(key)] = val
+	return val, true
 }

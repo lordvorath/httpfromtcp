@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -24,7 +22,7 @@ type HandlerError struct {
 	Message    string
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w response.Writer, req *request.Request)
 
 func Serve(port int, handler Handler) (*Server, error) {
 	addr := fmt.Sprintf(":%d", port)
@@ -67,41 +65,24 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
+	defer conn.Close()
+
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
 		he := &HandlerError{
-			StatusCode: int(response.StatusError),
+			StatusCode: int(response.StatusBadRequest),
 			Message:    err.Error(),
 		}
 		he.Write(conn)
 		return
 	}
 
-	buf := new(bytes.Buffer)
-
-	he := s.handler(buf, req)
-	if he != nil {
-		he.Write(conn)
-		return
+	writer := response.Writer{
+		W: conn,
 	}
 
-	h := response.GetDefaultHeaders(buf.Len())
-	err = response.WriteStatusLine(conn, 200)
-	if err != nil {
-		fmt.Printf("error writing response: %v", err)
-	}
-	err = response.WriteHeaders(conn, h)
-	if err != nil {
-		fmt.Printf("error writing response: %v", err)
-	}
-	err = response.WriteBody(conn, buf.Bytes())
-	if err != nil {
-		fmt.Printf("error writing response: %v", err)
-	}
-	err = conn.Close()
-	if err != nil {
-		fmt.Printf("error writing response: %v", err)
-	}
+	s.handler(writer, req)
+
 }
 
 func (he HandlerError) Write(conn net.Conn) error {
