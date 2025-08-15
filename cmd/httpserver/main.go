@@ -38,6 +38,11 @@ func myHandler(w *response.Writer, req *request.Request) {
 		handleChunked(w, req)
 		return
 	}
+	if strings.HasPrefix(req.RequestLine.RequestTarget, "/video") {
+		handleVideo(w, req)
+		return
+	}
+
 	var code response.StatusCode = response.StatusOk
 	var message string = "OK"
 	var title string = "Success!"
@@ -158,4 +163,22 @@ func handler500(w *response.Writer, _ *request.Request) {
 	h.Set("Content-Type", "text/html")
 	w.WriteHeaders(h)
 	w.WriteBody(body)
+}
+
+func handleVideo(w *response.Writer, _ *request.Request) {
+	data, err := os.ReadFile("./assets/vim.mp4")
+	if err != nil {
+		fmt.Printf("error reading file: %v", err)
+		return
+	}
+
+	var code response.StatusCode = response.StatusOk
+	headers := response.GetDefaultHeaders(len(data))
+	headers.Set("Content-Type", "video/mp4")
+
+	w.WriteStatusLine(code)
+	w.WriteHeaders(headers)
+
+	w.WriteBody(data)
+
 }
