@@ -125,13 +125,35 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 	l := strings.ToUpper(strconv.FormatInt(int64(len(p)), 16))
 	msg := l + "\r\n" + string(p) + "\r\n"
-	_, err := w.W.Write([]byte(msg))
-	if err != nil {
-		return 0, err
-	}
-	return len(p), nil
+	return w.W.Write([]byte(msg))
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	return w.W.Write([]byte("0\r\n\r\n"))
+	return w.W.Write([]byte("0\r\n"))
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	trailers, ok := h.Get("Trailer")
+	if !ok {
+		return nil
+	}
+
+	var myErr error = nil
+	tParts := strings.Split(trailers, ", ")
+	newTrailers := headers.Headers{}
+
+	for _, key := range tParts {
+		val, ok := h.Get(key)
+		if !ok {
+			myErr = fmt.Errorf("trailer %s not found in headers\n", key)
+			continue
+		}
+		newTrailers.Set(key, val)
+	}
+
+	err := w.WriteHeaders(newTrailers)
+	if err != nil {
+		return err
+	}
+	return myErr
 }

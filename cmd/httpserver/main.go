@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,7 +18,6 @@ import (
 )
 
 const port = 42069
-const chunkSize = 8
 
 func main() {
 	server, err := server.Serve(port, myHandler)
@@ -72,11 +74,13 @@ func myHandler(w *response.Writer, req *request.Request) {
 	}
 }
 
+const chunkSize = 1024
+
 func handleChunked(w *response.Writer, req *request.Request) {
 	//get data
-	data := []byte(`"Host": "httpbin.org"`) //CHEATING, because httpbin.org is down
+	//data := []byte(`"Host": "httpbin.org"`) //CHEATING, because httpbin.org is down
 
-	/* From the solution because httpbin.org is down
+	// From the solution because httpbin.org is down
 	target := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
 	url := "https://httpbin.org/" + target
 	fmt.Println("Proxying to", url)
@@ -86,36 +90,55 @@ func handleChunked(w *response.Writer, req *request.Request) {
 		return
 	}
 	defer resp.Body.Close()
-	*/
+
+	data := make([]byte, chunkSize)
 
 	//send response
 	var code response.StatusCode = response.StatusOk
 	headers := response.GetDefaultHeaders(0)
 	headers.Set("Content-Type", "text/html")
 	headers.Set("Transfer-Encoding", "chunked")
+	headers.Set("Trailer", "X-Content-SHA256, X-Content-Length")
 
 	w.WriteStatusLine(code)
 	w.WriteHeaders(headers)
 
-	bytesSent := 0
-	for bytesSent < len(data) {
-		sendTo := bytesSent + chunkSize
-		if sendTo > len(data) {
-			sendTo = len(data)
+	fullBody := make([]byte, 0)
+	for {
+		n, err := resp.Body.Read(data)
+		fmt.Println("Read", n, "bytes")
+		if n > 0 {
+			_, err := w.WriteChunkedBody(data[:n])
+			if err != nil {
+				fmt.Println("Error writing chunked body:", err)
+				break
+			}
+			fullBody = append(fullBody, data[:n]...)
 		}
-		n, err := w.WriteChunkedBody(data[bytesSent:sendTo])
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			fmt.Printf("failed to write chunked body: %v", err)
-			return
+			fmt.Println("Error reading response body:", err)
+			break
 		}
-		bytesSent += n
+
 	}
-	_, err := w.WriteChunkedBodyDone()
+	_, err = w.WriteChunkedBodyDone()
 	if err != nil {
 		fmt.Printf("failed to write end of chunked body: %v", err)
 		return
 	}
-	return
+
+	sha256 := fmt.Sprintf("%x", sha256.Sum256(fullBody))
+	headers.Set("X-Content-SHA256", sha256)
+	ll := fmt.Sprintf("%d", len(fullBody))
+	headers.Set("X-Content-Length", ll)
+
+	err = w.WriteTrailers(headers)
+	if err != nil {
+		fmt.Printf("error writing trailers: %v", err)
+	}
 
 }
 
